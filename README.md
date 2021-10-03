@@ -3,31 +3,31 @@ LSEngine - OpenGL Game Engine
 </h1>
 
 <p align="center">
-<img src="resources/images/logo.png" width="256">
+<img src="LSEngine/resources/images/logo.png" width="256">
 </p>
 
 <p align="center">
-<img src="resources/images/screenshot.JPG">
+<img src="LSEngine/resources/images/screenshot.JPG">
 </p>
 
 ## Goals
 The intention of this project is first and foremost as a learning tool. I am by no means an expert in computer graphics programming but it's always piqued my interest. The main goal is to create at it's most basic, a fully featured game engine. The renderer and level editor are being developed simultaneously but this will eventually be split in to a less monolithic code-base down the road. 
 
 **Classes**:
-- [LSEngine](headers/LSEngine.hpp) - Basic engine functions and configuration. Responsible for creating & managing windows, processing input, drawing graphics, and cleaning up.
-- [LSShader](headers/LSShader.hpp) - Manages GLSL shaders. Reads/compiles from files and loads/links shaders.
-- [LSCamera](headers/LSCamera.hpp) - Create and manage camera/s in the scene. Handles movement, input, and matrix mathematics for perspective projection.
-- [LSUtilities](headers/LSUtilities.hpp) - Helper functions
-- [LSSceneManager](headers/LSSceneManager.hpp) - Manages the saving/loading of scenes in to the editor
-- [LSMaterial](headers/LSMaterial.hpp) - Links shaders with textures and some other properties like object color, shininess, diffuse, etc. Will eventually switch over to PBR but the Phong model is much simpler to work with in the early stages of development.
-- [LSEntity](headers/LSEntity.hpp) - An object in the scene with geometry, material, and transform properties. Analogous to Actors in Unreal or GameObjects in Unity.
-- [LSPrimative](headers/LSPrimative.hpp) - Primative meshes such as cubes and planes. Basically just hard-coded normalized vertex data stored in arrays.
+- [LSEngine](LSEngine/LSEngine.h) - Basic engine functions and configuration. Responsible for creating & managing windows, processing input, drawing graphics, and cleaning up.
+- [LSShader](LSEngine/LSShader.h) - Manages GLSL shaders. Reads/compiles from files and loads/links shaders.
+- [LSCamera](LSEngine/LSCamera.h) - Create and manage camera/s in the scene. Handles movement, input, and matrix mathematics for perspective projection.
+- [LSUtilities](LSEngine/LSUtilities.h) - Helper functions
+- [LSSceneManager](LSEngine/LSSceneManager.h) - Manages the saving/loading of scenes in to the editor
+- [LSMaterial](LSEngine/LSMaterial.h) - Links shaders with textures and some other properties like object color, shininess, diffuse, etc. Will eventually switch over to PBR but the Phong model is much simpler to work with in the early stages of development.
+- [LSEntity](LSEngine/LSEntity.h) - An object in the scene with geometry, material, and transform properties. Analogous to Actors in Unreal or GameObjects in Unity.
+- [LSPrimative](LSEngine/LSPrimative.h) - Primative meshes such as cubes and planes. Basically just hard-coded normalized vertex data stored in arrays.
 
 **Resources**:
-- [resources/shaders](resources/shaders) - Shader source files for all the built in shaders
-- [resources/textures](resources/textures) - Default texture files that can be used in the editor
-- [resources/meshes](resources/meshes) - Meshes used for the editor
-- [resources/scenes](resources/scenes) - Scene files
+- [resources/shaders](LSEngine/resources/shaders) - Shader source files for all the built in shaders
+- [resources/textures](LSEngine/resources/textures) - Default texture files that can be used in the editor
+- [resources/meshes](LSEngine/resources/meshes) - Meshes used for the editor
+- [resources/scenes](LSEngine/resources/scenes) - Scene files
 
 ## TODO:
 
