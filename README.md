@@ -7,7 +7,7 @@ LSEngine - OpenGL Game Engine
 </p>
 
 <p align="center">
-<img src="LSEngine/resources/images/screenshot.JPG">
+<img src="LSEngine/resources/images/lsengine.jpg">
 </p>
 
 ## Goals
