@@ -1,6 +1,6 @@
 #include "LSEntity.h"
 
-LSEntity::LSEntity(unsigned int id, glm::vec3 pos, glm::vec4 rot, glm::vec3 scale, std::vector<float> vert, LSMaterial* mat, std::string name) {
+LSEntity::LSEntity(unsigned int id, glm::vec3 pos, glm::vec3 rot, glm::vec3 scale, std::vector<float> vert, LSMaterial* mat, std::string name) {
   ID = id;
   Position = pos;
   Rotation = rot;
@@ -8,6 +8,7 @@ LSEntity::LSEntity(unsigned int id, glm::vec3 pos, glm::vec4 rot, glm::vec3 scal
   Material = mat;
   Vertices = vert;
   Name = name;
+  enabled = true;
 }
 
 void LSEntity::PrepBuffers() {
@@ -28,9 +29,10 @@ void LSEntity::PrepBuffers() {
 }
 
 void LSEntity::Draw() {
-  Material->Bind(Position, Scale);
+  Material->Bind(Position, Rotation, Scale);
   glBindVertexArray(VAO);
   glDrawArrays(GL_TRIANGLES, 0, (int)(Vertices.size() / 8));
+  glBindVertexArray(0);
 }
 
 void LSEntity::Cleanup() {

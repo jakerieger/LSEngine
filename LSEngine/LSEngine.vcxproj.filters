@@ -66,6 +66,9 @@
     <ClCompile Include="LSUtilities.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LSGUI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glad.h">
@@ -134,5 +137,16 @@
     <ClInclude Include="LSPrimative.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LSGUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+    <None Include="resources\shaders\skybox.lsshader" />
+    <None Include="resources\shaders\phong.lsshader" />
+    <None Include="resources\shaders\unlit.lsshader" />
+    <None Include="resources\shaders\grid.lsshader" />
+    <None Include="resources\shaders\light.lsshader" />
   </ItemGroup>
 </Project>

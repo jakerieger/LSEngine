@@ -1,9 +1,11 @@
 #include "LSEngine.h"
 
-// TODO: implement these as class member variables instead of global variables
+// GLOBALS
 LSCamera camera;
 float lastX, lastY;
 bool firstMouse = true;
+static int selectedItemID = -1;
+LSGUI::LS_SELECTABLE selectedType;
 
 // Global functions used for OpenGL / GLFW callbacks
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -16,6 +18,7 @@ void GLAPIENTRY MessageCallback(GLenum source,
   GLsizei length, 
   const char* message,
   const void* userParam);
+bool Any(std::vector<std::string> test_cases, std::string test_string);
 
 LSEngine::LSEngine(int width, int height, const char* title, glm::vec4 clearColor) {
   WIDTH = width;
@@ -50,12 +53,9 @@ void LSEngine::InitWindow() {
 
   glfwMakeContextCurrent(window);
 
-  // Enabled V-SYNC
-  // glfwSwapInterval(1);
-
   LSUtilities::InitGLAD();
-  LSUtilities::GUI::InitImGUI(window, 4, 6);
-  LSUtilities::GUI::ApplyTheme();
+  LSGUI::InitImGUI(window, 4, 6);
+  LSGUI::ApplyTheme();
 
   glViewport(0, 0, WIDTH, HEIGHT);
   glEnable(GL_DEBUG_OUTPUT);
@@ -81,9 +81,10 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
   ImGuiViewport* viewport = ImGui::GetMainViewport();
 
   ImVec2 dockspaceArea = ImVec2(viewport->Pos.x, viewport->Pos.y + ImGui::GetFrameHeight());
+  ImVec2 viewportSize_2 = ImVec2(viewport->Size.x, viewport->Size.y - ImGui::GetFrameHeight());
 
   ImGui::SetNextWindowPos(dockspaceArea);
-  ImGui::SetNextWindowSize(viewport->Size);
+  ImGui::SetNextWindowSize(viewportSize_2);
   ImGui::SetNextWindowViewport(viewport->ID);
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
@@ -103,14 +104,13 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
     }
 
     if (ImGui::MenuItem("Open Scene", "Ctrl+O")) {
-      std::filesystem::path cwd = std::filesystem::current_path();
-      std::string workingDir = cwd.string();
+      std::string scenePath = rootDir + "scenes";
 
       const char* fileFilters[1] = { "*.lsscene" };
 
       const char* fd_result = tinyfd_openFileDialog(
         "Open Scene",
-        workingDir.c_str(),
+        scenePath.c_str(),
         1,
         fileFilters,
         NULL,
@@ -120,7 +120,7 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
       if (fd_result != nullptr) {
         sceneManager.LoadScene(fd_result);
         entities = sceneManager.entities;
-        std::string windowTitle = fmt::format("LSEngine (Development Build) | Renderer: OpenGL | Scene: {}", sceneManager.sceneName);
+        std::string windowTitle = fmt::format("LSEngine (Development Build) | {} | <OpenGL 4.6>", sceneManager.sceneName);
         glfwSetWindowTitle(window, windowTitle.c_str());
       }
     }
@@ -140,66 +140,77 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
 
   ImGui::End();
 
-  ImGui::Begin("Scene Overview");
+#pragma region Scene Hierarchy
+  ImGui::Begin("Scene Hierarchy");
 
   for (auto& entity : entities) {
-    if (ImGui::TreeNode(entity->Name.c_str())) {
-      if (ImGui::TreeNode("Transform")) {
-        std::string positionLabel = fmt::format("Position [{}]", entity->Name);
-        std::string scaleLabel = fmt::format("Scale [{}]", entity->Name);
 
-        ImGui::SliderFloat3(positionLabel.c_str(), (float*)&entity->Position, -10.0f, 10.0f, "%.1f");
-        ImGui::SliderFloat3(scaleLabel.c_str(), (float*)&entity->Scale, 0.0f, 10.0f, "%.1f");
-        ImGui::TreePop();
-      }
-
-      if (ImGui::TreeNode("Material")) {
-        std::string materialType = fmt::format("Type: {}", entity->Material->GetMaterialTypeAsString());
-        ImGui::Text(materialType.c_str());
-
-        std::string materialColorLbl = fmt::format("Color [{}]", (char)entity->ID);
-        ImGui::ColorPicker4(materialColorLbl.c_str(), (float*)&entity->Material->objectColor);
-
-        ImGui::TreePop();
-      }
-
-      if (ImGui::Button("Delete Entity")) {
-        // Remove entity from scene
-        entities.erase(entities.begin() + entity->ID);
-
-        // Update remaining entity IDs
-        for (int i = 0; i < entities.size(); i++) {
-          entities[i]->ID = i;
-        }
-      }
-
-      ImGui::TreePop();
+    if (ImGui::Selectable(entity->Name.c_str(), selectedItemID == entity->ID)) {
+      selectedItemID = entity->ID;
+      selectedType = LSGUI::LS_SELECTABLE_ENTITY;
     }
   }
 
   ImGui::End();
+#pragma endregion
 
-  // ImGui::Begin("Inspector");
-  // ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+#pragma region Inspector
+  ImGui::Begin("Inspector");
 
-  // for (auto& entity : entities) {
-
-  // }
-
-  // ImGui::End();
-
-  ImGui::Begin("Content Browser");
-  ImGui::End();
-
-  ImGui::Begin("Settings");
-
-  if (ImGui::TreeNode("Renderer")) {
-    // V-SYNC
-    ImGui::Checkbox("V-Sync", &EngineSettings.enableVsync);
-    ImGui::TreePop();
+  if (selectedItemID != -1) {
+    UpdateInspector(selectedType);
   }
 
-  if (ImGui::TreeNode("Scene")) {
+  ImGui::End();
+#pragma endregion
+
+#pragma region Content Browser
+  ImGui::Begin("Content Browser");
+
+  std::vector<std::string> imageExts = { ".png", ".jpg", ".jpeg", ".tif", ".bmp", ".gif", ".hdr" };
+  std::string sceneExt = ".lsscene";
+  std::string materialExt = ".lsmat";
+  std::string shaderExt = ".lsshader";
+
+  for (const auto& entry : std::filesystem::directory_iterator(rootDir)) {
+    if (entry.is_directory()) {
+      if (ImGui::TreeNode(entry.path().filename().string().c_str())) {
+        bool is_selected = false;
+
+        int i = 0;
+        for (const auto& subEntry : std::filesystem::directory_iterator(entry.path())) {
+          if (ImGui::Selectable(subEntry.path().filename().string().c_str(), is_selected)) {
+            selectedItemID = i;
+
+            if (Any(imageExts, subEntry.path().extension().string())) {
+              selectedType = LSGUI::LS_SELECTABLE_TEXTURE;
+            }
+            else if (subEntry.path().extension().string() == materialExt)
+              selectedType = LSGUI::LS_SELECTABLE_MATERIAL;
+            else
+              selectedItemID = -1;
+          }
+
+          i++;
+        }
+
+        ImGui::TreePop();
+      }
+    }
+  }
+
+  ImGui::End();
+#pragma endregion
+
+#pragma region Settings
+  ImGui::Begin("Settings");
+
+  if (ImGui::CollapsingHeader("Renderer")) {
+    // V-SYNC
+    ImGui::Checkbox("V-Sync", &EngineSettings.enableVsync);
+  }
+
+  if (ImGui::CollapsingHeader("Scene")) {
     // Reference Grid
     ImGui::Checkbox("Grid", &EngineSettings.enableGrid);
 
@@ -220,7 +231,8 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
             current_item = aspectRatioOptions[n];
 
             // Change Aspect Ratio
-            viewportHeight = 2.0f;
+            // Formula: (y * width) / x = height
+            // ex. 4:3 aspect ratio => (3 * width) / 4
           }
             
           if (is_selected)
@@ -232,42 +244,117 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
 
       ImGui::TreePop();
     }
-
-    ImGui::TreePop();
   }
 
   ImGui::End();
+#pragma endregion
 
-  ImGui::Begin("Inspector");
-  ImGui::End();
-
+#pragma region Analytics
   ImGui::Begin("Analytics");
 
   char* renderer = (char*)glGetString(GL_RENDERER);
   std::string rendererS;
   rendererS += renderer;
   std::string gpuInfo = fmt::format("GPU: {}", rendererS);
-  ImGui::Text(gpuInfo.c_str());
-  ImGui::Text("FPS: %.01f", ImGui::GetIO().Framerate);
-  ImGui::Text("Time Per Frame: %.0001fms", 1000.0f / ImGui::GetIO().Framerate);
+
+  ImGui::Text("GPU");
+  ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize(renderer).x);
+  ImGui::Text(renderer);
+  ImGui::Separator();
+
+  ImGui::Text("Framerate");
+  std::string framerate = fmt::format("{:.{}f}", ImGui::GetIO().Framerate, 1);
+  ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize(framerate.c_str()).x);
+
+  if (ImGui::GetIO().Framerate >= 60.0f) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 0.0f, 1.0f, 0.0f, 1.0f }));
+    ImGui::Text("%.1f", ImGui::GetIO().Framerate);
+    ImGui::PopStyleColor();
+  }
+  else if (ImGui::GetIO().Framerate < 60.0f && ImGui::GetIO().Framerate > 30.0f) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 1.0f, 0.8f, 0.0f, 1.0f }));
+    ImGui::Text("%.1f", ImGui::GetIO().Framerate);
+    ImGui::PopStyleColor();
+  }
+  else {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 1.0f, 0.0f, 0.0f, 1.0f }));
+    ImGui::Text("%.1f", ImGui::GetIO().Framerate);
+    ImGui::PopStyleColor();
+  }
+
+  ImGui::Separator();
+
+  ImGui::Text("Time Per Frame");
+  std::string timeperframe = fmt::format("{:.{}f}ms", 1000.0f / ImGui::GetIO().Framerate, 1);
+  ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize(timeperframe.c_str()).x);
+
+  if (ImGui::GetIO().Framerate >= 60.0f) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 0.0f, 1.0f, 0.0f, 1.0f }));
+    ImGui::Text("%.1fms", 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::PopStyleColor();
+  }
+  else if (ImGui::GetIO().Framerate < 60.0f && ImGui::GetIO().Framerate > 30.0f) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 1.0f, 0.8f, 0.0f, 1.0f }));
+    ImGui::Text("%.1fms", 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::PopStyleColor();
+  }
+  else {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 1.0f, 0.0f, 0.0f, 1.0f }));
+    ImGui::Text("%.1fms", 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::PopStyleColor();
+  }
+
+  ImGui::Separator();
+
+  ImGui::Text("VRAM Usage");
+
+  float memoryUsage = std::get<0>(LSUtilities::GetGPUMemoryUsage());
+  float availMemory = std::get<2>(LSUtilities::GetGPUMemoryUsage());
+
+  std::string memusage = fmt::format("{:.{}f}MB", memoryUsage, 1);
+  ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize(memusage.c_str()).x);
+
+  if (memoryUsage / availMemory <= 0.25f) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 0.0f, 1.0f, 0.0f, 1.0f }));
+    ImGui::Text("%.1fMB", memoryUsage);
+    ImGui::PopStyleColor();
+  }
+  else if (memoryUsage / availMemory > 0.25f && memoryUsage / availMemory <= 0.5f) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 1.0f, 0.8f, 0.0f, 1.0f }));
+    ImGui::Text("%.1fMB", memoryUsage);
+    ImGui::PopStyleColor();
+  }
+  else {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4({ 1.0f, 0.0f, 0.0f, 1.0f }));
+    ImGui::Text("%.1fMB", memoryUsage);
+    ImGui::PopStyleColor();
+  }
+
+  ImGui::Separator();
+  ImGui::Text("Available VRAM");
+  std::string availmem = fmt::format("{:.{}f}MB", availMemory, 1);
+  ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize(availmem.c_str()).x);
+  ImGui::Text("%.1fMB", availMemory);
 
   ImGui::End();
+#pragma endregion
 
-  ImGui::Begin("Toolbox");
+#pragma region Toolbox
+  ImGui::Begin("##Toolbox");
 
-  if (ImGui::Button("Wireframe")) {
+  if (LSGUI::Button("Wireframe")) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   }
 
   ImGui::SameLine();
 
-  if (ImGui::Button("Fill")) {
+  if (LSGUI::Button("Fill")) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   }
 
   ImGui::SameLine();
 
-  if (ImGui::Button("Load Scene")) {
+  if (LSGUI::Button("Load Scene")) {
     sceneManager.LoadScene("resources/scenes/test.lsscene");
     entities = sceneManager.entities;
 
@@ -277,24 +364,27 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
 
   ImGui::SameLine();
 
-  if (ImGui::Button("Save Scene")) {
+  if (LSGUI::Button("Save Scene")) {
     sceneManager.SaveScene("resources/scenes/demo.lsscene", "Demo", entities);
   }
 
   ImGui::SameLine();
 
-  if (ImGui::Button("Add Cube")) {
-    LSMaterial* mat = new LSMaterial(LS_MAT_UNLIT, NULL, NULL);
+  if (LSGUI::Button("Add Cube")) {
+    LSMaterial* mat = new LSMaterial(LS_MAT_UNLIT, NULL, NULL, "cubemat");
     Cube* cube = new Cube();
 
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec4 rot = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    glm::vec3 rot = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
 
     unsigned int numEntities = entities.size();
     std::string entityName = fmt::format("Object {}", numEntities);
 
     LSEntity* entity = new LSEntity(numEntities, pos, rot, scale, cube->vertices, mat, entityName);
+
+    entity->PrepBuffers();
+
     entities.push_back(entity);
 
     Log("Added primitive [cube]");
@@ -302,12 +392,12 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
 
   ImGui::SameLine();
 
-  if (ImGui::Button("Add Light")) {
-    LSMaterial* mat = new LSMaterial(LS_MAT_UNLIT, NULL, NULL);
+  if (LSGUI::Button("Add Light")) {
+    LSMaterial* mat = new LSMaterial(LS_MAT_UNLIT, NULL, NULL, "lightmat");
     mat->objectColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     Cube* cube = new Cube();
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec4 rot = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    glm::vec3 rot = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 scale = glm::vec3(0.2f, 0.2f, 0.2f);
 
     unsigned int numEntities = entities.size();
@@ -321,7 +411,7 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
 
   ImGui::SameLine();
 
-  if (ImGui::Button("Export Log")) {
+  if (LSGUI::Button("Export Log")) {
     int result = LSUtilities::OutputLog(DebugLog);
 
     if (result == 0) {
@@ -333,7 +423,9 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
   }
 
   ImGui::End();
+#pragma endregion
 
+#pragma region Log
   ImGui::Begin("Log");
 
   for (std::string logEntry : DebugLog) {
@@ -341,66 +433,211 @@ void LSEngine::DrawGUI(unsigned int renderTexID) {
   }
 
   ImGui::End();
+#pragma endregion
 
-  // if (ImGui::BeginMainMenuBar()) {
-  //   if (ImGui::BeginMenu("File")) {
-  //     if (ImGui::MenuItem("New")) {
-  //       //
-  //     }
-  //     ImGui::EndMenu();
-  //   }
-
-  //   ImGui::EndMainMenuBar();
-  // }
-
+#pragma region Scene
   ImGui::Begin("Scene");
   ImGui::BeginChild("SceneRender");
-  ImVec2 wsize = ImGui::GetWindowSize();
+  ImVec2 viewportSize = ImGui::GetWindowSize();
 
-  viewportWidth = wsize.x;
-  viewportHeight = wsize.y;
+  viewportWidth = viewportSize.x;
+  viewportHeight = viewportSize.y;
 
-  ImGui::Image((ImTextureID)renderTexID, wsize, ImVec2(0, 1), ImVec2(1, 0));
+  ImGui::Image((ImTextureID)renderTexID, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
   ImGui::EndChild();
   ImGui::End();
+#pragma endregion
 
   ImGui::Render();
 }
 
+void LSEngine::UpdateInspector(LSGUI::LS_SELECTABLE selectableType)
+{
+  if (selectableType == LSGUI::LS_SELECTABLE_ENTITY) {
+    LSEntity* entity = entities[selectedItemID];
+
+    ImGui::Checkbox("##entityEnabled", &entities[selectedItemID]->enabled);
+    ImGui::SameLine();
+    // Entity name InputText
+    ImGui::Text(entities[selectedItemID]->Name.c_str());
+    ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 32.0f);
+    if (LSGUI::ButtonColored("Delete", ImVec4({1.0f, 0.22f, 0.38f, 1.0f}))) {
+      entities.erase(entities.begin() + entities[selectedItemID]->ID);
+      for (int i = 0; i < entities.size(); i++) {
+        entities[i]->ID = i;
+      }
+      selectedItemID = -1;
+    }
+
+    // Transform
+    if (ImGui::CollapsingHeader("Transform")) {
+      ImGui::Text("Position");
+      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcItemWidth());
+      std::string posTag = fmt::format("##position{}", selectedItemID);
+      LSGUI::DragFloatN_Colored(posTag.c_str(), (float*)&entity->Position, 3, 0.1f, -10.0f, 10.0f, "%.1f");
+
+      ImGui::Text("Rotation");
+      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcItemWidth());
+      std::string rotTag = fmt::format("##rotation{}", selectedItemID);
+      LSGUI::DragFloatN_Colored(rotTag.c_str(), (float*)&entity->Rotation, 3, 0.5f, -180.0f, 180.0f, "%.1f");
+
+      ImGui::Text("Scale");
+      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcItemWidth());
+      std::string sclTag = fmt::format("##scale{}", selectedItemID);
+      LSGUI::DragFloatN_Colored(sclTag.c_str(), (float*)&entity->Scale, 3, 0.1f, 0.0001f, 1000.0f, "%.1f");
+    }
+
+    // Material
+    std::string materialHdr = fmt::format("Material ({})", entity->Material->Name);
+    if (ImGui::CollapsingHeader(materialHdr.c_str())) {
+      ImGui::Text("Shader");
+      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize(entity->Material->GetMaterialTypeAsString().c_str()).x);
+      ImGui::Text(entity->Material->GetMaterialTypeAsString().c_str());
+
+      ImGui::Text("Base Color");
+      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - ImGui::CalcItemWidth());
+      std::string colorTag = fmt::format("##color{}", entity->ID);
+
+      ImGui::ColorPicker4(colorTag.c_str(), (float*)&entity->Material->objectColor);
+    }
+
+    ImGui::Separator();
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() * 0.5f);
+    if (LSGUI::Button("Add Component", ImVec2(-1.0f, 0.0f))) {
+      //
+    }
+  }
+  else if (selectableType == LSGUI::LS_SELECTABLE_MATERIAL) {
+
+  }
+  else if (selectableType == LSGUI::LS_SELECTABLE_MESH) {
+
+  }
+  else if (selectableType == LSGUI::LS_SELECTABLE_TEXTURE) {
+    if (Resources.textures[selectedItemID] != selectedTextureCache) {
+      std::cout << "Loading texture preview data" << std::endl;
+      auto future = std::async(LSUtilities::LoadTextureThreaded, Resources.textures[selectedItemID].c_str(), &image_width, &image_height);
+      auto image_data = future.get();
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+      stbi_image_free(image_data);
+      selectedTextureCache = Resources.textures[selectedItemID];
+    }
+
+    ImVec2 previewSize = {
+      ImGui::GetContentRegionAvailWidth(),
+      (image_height * ImGui::GetContentRegionAvailWidth()) / image_width
+    };
+
+    ImGui::Image((ImTextureID)texture_preview, previewSize);
+    //ImGui::End();
+  }
+  else {
+
+  }
+}
+
 void LSEngine::RenderLoop() {
   glEnable(GL_DEPTH_TEST);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_BLEND);
+  //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  //glEnable(GL_BLEND);
 
+  /*
   LSShader* gridShader = new LSShader();
   gridShader->LoadShaders("resources/shaders/grid.lsshader");
+  */
 
-  //LSMaterial* material = new LSMaterial(LS_MAT_PHONG, "resources/textures/container2.png", "resources/textures/container2_specular.png");
-  //material->objectColor = glm::vec4(20.f / 255.f, 90.f / 255.f, 123.f / 255.f, 1.0f);
-
-  LSMaterial* material2 = new LSMaterial(LS_MAT_UNLIT, NULL, NULL);
+  LSMaterial* material2 = new LSMaterial(LS_MAT_UNLIT, NULL, NULL, "test material");
 
   Cube* myCube = new Cube();
 
-  //LSEntity* myEntity = new LSEntity(entities.size(), glm::vec3(-3.0f, 0.0f, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), myCube->vertices, material, "my cube");
-  //Log(fmt::format("Added entity: {}", myEntity->Name));
-  //entities.push_back(myEntity);
-
-
-  LSEntity* myEntity2 = new LSEntity(entities.size(), glm::vec3(3.0f, 0.0f, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), myCube->vertices, material2, "my cube 2");
+  LSEntity* myEntity2 = new LSEntity(entities.size(), glm::vec3(3.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), myCube->vertices, material2, "my cube 2");
   Log(fmt::format("Added entity: {}", myEntity2->Name));
   entities.push_back(myEntity2);
 
   camera.Use(glm::vec3(0.0f, 1.0f, 3.0f));
 
+  /*
   unsigned int gridVAO;
   glGenVertexArrays(1, &gridVAO);
   glBindVertexArray(gridVAO);
+  */
 
   for (auto& entity : entities) {
     entity->PrepBuffers();
   }
 
+  float skyboxVertices[] = {
+    // positions          
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+  };
+
+  unsigned int skyboxVAO, skyboxVBO;
+  glGenVertexArrays(1, &skyboxVAO);
+  glGenBuffers(1, &skyboxVBO);
+  glBindVertexArray(skyboxVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+  std::vector<std::string> cubemapFaces = {
+  "resources/textures/skybox/right.jpg",
+  "resources/textures/skybox/left.jpg",
+  "resources/textures/skybox/top.jpg",
+  "resources/textures/skybox/bottom.jpg",
+  "resources/textures/skybox/front.jpg",
+  "resources/textures/skybox/back.jpg",
+  };
+
+  unsigned int skyboxTex = LSUtilities::LoadCubemap(cubemapFaces);
+  std::cout << skyboxTex << std::endl;
+
+  LSShader* skyboxShader = new LSShader();
+  skyboxShader->LoadShaders("resources/shaders/skybox.lsshader");
+  skyboxShader->Use();
+  skyboxShader->setInt("skybox", 0);
+
+#pragma region Scene FBO
   unsigned int framebuffer;
   glGenFramebuffers(1, &framebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -427,8 +664,16 @@ void LSEngine::RenderLoop() {
     std::cout << "Unsupported" << std::endl;
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#pragma endregion
+
+  glGenTextures(1, &texture_preview);
+  glBindTexture(GL_TEXTURE_2D, texture_preview);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   while (!glfwWindowShouldClose(window)) {
+    load_resources();
+
     switch (EngineSettings.enableVsync) {
     case true:
       glfwSwapInterval(1);
@@ -454,37 +699,58 @@ void LSEngine::RenderLoop() {
     glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), viewportWidth / viewportHeight, 0.1f, 100.0f);
     glm::mat4 view = camera.GetViewMatrix();
 
+    /*
     switch (EngineSettings.enableGrid) {
     case true:
-      glDepthFunc(GL_LEQUAL);
       gridShader->Use();
       gridShader->setMat4("view", view);
       gridShader->setMat4("proj", projection);
       glDrawArrays(GL_TRIANGLES, 0, 6);
-      glDepthFunc(GL_LESS);
       break;
     case false:
       glDepthFunc(GL_LESS);
     }
+    */
+
+    glDepthFunc(GL_LESS);
 
     for (auto& entity : entities) {
       entity->Material->projection = projection;
       entity->Material->view = view;
       entity->Material->shader->setVec3("viewPos", camera.Position);
-      entity->Draw();
+
+      if (entity->enabled)
+        entity->Draw();
     }
+
+    //glDepthFunc(GL_LEQUAL);
+    skyboxShader->Use();
+    view = glm::mat4(glm::mat3(camera.GetViewMatrix()));
+    skyboxShader->setMat4("view", view);
+    skyboxShader->setMat4("projection", projection);
+    glBindVertexArray(skyboxVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    //glDepthFunc(GL_LESS); // set depth function back to default
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
     glfwPollEvents();
     glfwSwapBuffers(window);
   }
 
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glDeleteTextures(1, &texture_preview);
+
   for (auto& entity : entities) {
     entity->Cleanup();
   }
+
+  glDeleteVertexArrays(1, &skyboxVAO);
+  glDeleteBuffers(1, &skyboxVAO);
 }
 
 void LSEngine::ProcessInput(GLFWwindow* window) {
@@ -525,6 +791,17 @@ void LSEngine::Cleanup() {
   glfwTerminate();
 }
 
+void LSEngine::load_resources()
+{
+  // Update Resources struct
+  Resources.textures = {};
+  for (const auto& entry : std::filesystem::directory_iterator(rootDir + "textures\\")) {
+    if (entry.is_regular_file()) {
+      Resources.textures.push_back(entry.path().string());
+    }
+  }
+}
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
   glViewport(0, 0, width, height);
 }
@@ -561,4 +838,13 @@ void GLAPIENTRY MessageCallback(GLenum source,
     std::string errorOutput = fmt::format("[ERROR] ID: {} | Message: {}", id, message);
     std::cout << errorOutput << std::endl;
   }
+}
+
+bool Any(std::vector<std::string> test_cases, std::string test_string) {
+  for (int i = 0; i < test_cases.size(); i++) {
+    if (test_string.find(test_cases[i]) != std::string::npos)
+      return true;
+  }
+
+  return false;
 }

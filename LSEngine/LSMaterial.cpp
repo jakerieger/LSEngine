@@ -1,8 +1,9 @@
 #include "LSMaterial.h"
 
-LSMaterial::LSMaterial(LS_SHADER_TYPES type, const char* dt, const char* st) {
+LSMaterial::LSMaterial(LS_SHADER_TYPES type, const char* dt, const char* st, const char* name) {
   shader = new LSShader();
   shaderType = type;
+  Name = name;
 
   switch (shaderType) {
   case LS_MAT_PHONG:
@@ -31,10 +32,13 @@ LSMaterial::LSMaterial(LS_SHADER_TYPES type, const char* dt, const char* st) {
   }
 }
 
-void LSMaterial::Bind(glm::vec3 position, glm::vec3 scale) {
+void LSMaterial::Bind(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale) {
   glm::mat4 model = glm::mat4(1.0f);
   model = glm::scale(model, scale);
   model = glm::translate(model, position);
+  model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+  model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+  model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0, 0, 1));
 
   shader->Use();
   shader->setMat4("projection", projection);
@@ -112,6 +116,13 @@ LS_SHADER_TYPES LSMaterial::GetMaterialTypeAsEnum(const char* type)
   else {
     return LS_MAT_UNLIT;
   }
+}
+
+void LSMaterial::SaveMaterial(LSMaterial* material, const char* filePath)
+{
+  json materialData;
+  materialData["name"] = material->Name;
+  materialData["shader"] = material->GetMaterialTypeAsString();
 }
 
 unsigned int LSMaterial::loadTexture(char const* path) {

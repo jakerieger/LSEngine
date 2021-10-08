@@ -163,6 +163,7 @@
     <ClCompile Include="LSCamera.cpp" />
     <ClCompile Include="LSEngine.cpp" />
     <ClCompile Include="LSEntity.cpp" />
+    <ClCompile Include="LSGUI.cpp" />
     <ClCompile Include="LSMaterial.cpp" />
     <ClCompile Include="LSSceneManager.cpp" />
     <ClCompile Include="LSShader.cpp" />
@@ -187,6 +188,7 @@
     <ClInclude Include="LSCamera.h" />
     <ClInclude Include="LSEngine.h" />
     <ClInclude Include="LSEntity.h" />
+    <ClInclude Include="LSGUI.h" />
     <ClInclude Include="LSMaterial.h" />
     <ClInclude Include="LSPrimative.h" />
     <ClInclude Include="LSSceneManager.h" />
@@ -194,6 +196,14 @@
     <ClInclude Include="LSUtilities.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="tinyfiledialogs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+    <None Include="resources\shaders\grid.lsshader" />
+    <None Include="resources\shaders\light.lsshader" />
+    <None Include="resources\shaders\phong.lsshader" />
+    <None Include="resources\shaders\skybox.lsshader" />
+    <None Include="resources\shaders\unlit.lsshader" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

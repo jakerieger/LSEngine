@@ -1,11 +1,6 @@
 #pragma once
 
 #include "glad.h"
-
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-
 #include <GLFW/glfw3.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -21,6 +16,8 @@
 #include <iostream>
 #include <vector>
 #include <time.h>
+#include <thread>
+#include <future>
 
 class LSUtilities
 {
@@ -30,17 +27,15 @@ public:
   static void SetWindowIcon(GLFWwindow* window, const char* iconPath);
   static std::string ReadFileToString(const char* filePath, const char* category);
   static int OutputLog(std::vector<std::string> logContents);
+  static bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height);
+  static std::tuple<float, float, float> GetGPUMemoryUsage();
+  static unsigned char* LoadTextureThreaded(const char* filename, int* image_width, int* image_height);
+  static unsigned int LoadCubemap(std::vector<std::string> faces);
 
   class Shader {
   public:
     static void ShaderCheckCompile(unsigned int shader);
     static void ShaderCheckLink(unsigned int ID);
-  };
-
-  class GUI {
-  public:
-    static void InitImGUI(GLFWwindow* window, unsigned int glslVerMajor, unsigned int glslVerMinor);
-    static void ApplyTheme();
   };
 };
 

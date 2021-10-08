@@ -8,7 +8,7 @@ int main() {
     1.0f
   );
 
-  LSEngine* engine = new LSEngine(1600, 900, "LSEngine", clearColor);
+  LSEngine* engine = new LSEngine(1600, 900, "LSEngine (Development Build) | Untitled Scene | <OpenGL 4.6>", clearColor);
 
   try {
     engine->Run();

@@ -1,5 +1,8 @@
 #include "LSUtilities.h"
 
+#define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
+#define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
+
 void LSUtilities::InitGLAD() {
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		throw std::runtime_error("[!] Failed to initialize GLAD!\n");
@@ -28,84 +31,6 @@ void LSUtilities::Shader::ShaderCheckLink(unsigned int ID) {
 		std::string msg = fmt::format("ERROR::SHADER::PROGRAM::LINKING_FAILED\n{}", infoLog);
 		throw std::runtime_error(msg);
 	}
-}
-
-void LSUtilities::GUI::InitImGUI(GLFWwindow* window, unsigned int glslVerMajor, unsigned int glslVerMinor) {
-	std::string glsl_version = fmt::format("#version {}{}0 core", glslVerMajor, glslVerMinor);
-
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	ImGui::StyleColorsDark();
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init(glsl_version.c_str());
-}
-
-void LSUtilities::GUI::ApplyTheme() {
-	ImGuiStyle* style = &ImGui::GetStyle();
-	ImVec4* colors = style->Colors;
-
-	colors[ImGuiCol_Text] = ImVec4(169.f / 255.f, 177.f / 255.f, 213.f / 255.f, 1.000f);
-	colors[ImGuiCol_TextDisabled] = ImVec4(103.f / 255.f, 108.f / 255.f, 130.f / 255.f, 1.000f);
-	colors[ImGuiCol_WindowBg] = ImVec4(20.f / 255.f, 20.f / 255.f, 27.f / 255.f, 1.000f);
-	colors[ImGuiCol_ChildBg] = ImVec4(1.280f, 0.280f, 0.280f, 0.000f);
-	colors[ImGuiCol_PopupBg] = ImVec4(0.313f, 0.313f, 0.313f, 1.000f);
-	colors[ImGuiCol_Border] = ImVec4(25.f / 255.f, 25.f / 255.f, 32.f / 255.f, 1.000f);
-	colors[ImGuiCol_BorderShadow] = ImVec4(0.000f, 0.000f, 0.000f, 0.000f);
-	colors[ImGuiCol_FrameBg] = ImVec4(26.f / 255.f, 27.f / 255.f, 38.f / 255.f, 1.000f);
-	colors[ImGuiCol_FrameBgHovered] = ImVec4(32.f / 255.f, 33.f / 255.f, 44.f / 255.f, 1.000f);
-	colors[ImGuiCol_FrameBgActive] = ImVec4(32.f / 255.f, 33.f / 255.f, 44.f / 255.f, 1.000f);
-	colors[ImGuiCol_TitleBg] = ImVec4(26.f / 255.f, 27.f / 255.f, 38.f / 255.f, 1.000f);
-	colors[ImGuiCol_TitleBgActive] = ImVec4(26.f / 255.f, 27.f / 255.f, 38.f / 255.f, 1.000f);
-	colors[ImGuiCol_TitleBgCollapsed] = ImVec4(26.f / 255.f, 27.f / 255.f, 38.f / 255.f, 1.000f);
-	colors[ImGuiCol_MenuBarBg] = ImVec4(20.f / 255.f, 20.f / 255.f, 27.f / 255.f, 1.000f);
-	colors[ImGuiCol_ScrollbarBg] = ImVec4(26.f / 255.f, 27.f / 255.f, 38.f / 255.f, 1.000f);
-	colors[ImGuiCol_ScrollbarGrab] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 0.800f);
-	colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_CheckMark] = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
-	colors[ImGuiCol_SliderGrab] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 0.800f);
-	colors[ImGuiCol_SliderGrabActive] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_Button] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_ButtonHovered] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 0.800f);
-	colors[ImGuiCol_ButtonActive] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_Header] = ImVec4(0.313f, 0.313f, 0.313f, 1.000f);
-	colors[ImGuiCol_HeaderHovered] = ImVec4(0.469f, 0.469f, 0.469f, 1.000f);
-	colors[ImGuiCol_HeaderActive] = ImVec4(0.469f, 0.469f, 0.469f, 1.000f);
-	colors[ImGuiCol_Separator] = colors[ImGuiCol_Border];
-	colors[ImGuiCol_SeparatorHovered] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 0.800f);
-	colors[ImGuiCol_SeparatorActive] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_ResizeGrip] = ImVec4(26.f / 255.f, 27.f / 255.f, 38.f / 255.f, 1.000f);
-	colors[ImGuiCol_ResizeGripHovered] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 0.800f);
-	colors[ImGuiCol_ResizeGripActive] = ImVec4(62.f / 255.f, 89.f / 255.f, 159.f / 255.f, 1.000f);
-	colors[ImGuiCol_Tab] = ImVec4(35.f / 255.f, 35.f / 255.f, 42.f / 255.f, 1.000f);
-	colors[ImGuiCol_TabHovered] = ImVec4(35.f / 255.f, 35.f / 255.f, 42.f / 255.f, 0.800f);
-	colors[ImGuiCol_TabActive] = ImVec4(35.f / 255.f, 35.f / 255.f, 42.f / 255.f, 1.000f);
-	colors[ImGuiCol_TabUnfocused] = ImVec4(25.f / 255.f, 25.f / 255.f, 32.f / 255.f, 1.000f);
-	colors[ImGuiCol_TabUnfocusedActive] = ImVec4(25.f / 255.f, 25.f / 255.f, 32.f / 255.f, 1.000f);
-	// colors[ImGuiCol_DockingPreview]         = ImVec4(1.000f, 0.391f, 0.000f, 0.781f);
-	// colors[ImGuiCol_DockingEmptyBg]         = ImVec4(0.180f, 0.180f, 0.180f, 1.000f);
-	colors[ImGuiCol_PlotLines] = ImVec4(0.469f, 0.469f, 0.469f, 1.000f);
-	colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
-	colors[ImGuiCol_PlotHistogram] = ImVec4(0.586f, 0.586f, 0.586f, 1.000f);
-	colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
-	colors[ImGuiCol_TextSelectedBg] = ImVec4(1.000f, 1.000f, 1.000f, 0.156f);
-	colors[ImGuiCol_DragDropTarget] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
-	colors[ImGuiCol_NavHighlight] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
-	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
-	colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.000f, 0.000f, 0.000f, 0.586f);
-	colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.000f, 0.000f, 0.000f, 0.586f);
-
-	style->ChildRounding = 4.0f;
-	style->FrameBorderSize = 1.0f;
-	style->FrameRounding = 2.0f;
-	style->GrabMinSize = 7.0f;
-	style->PopupRounding = 2.0f;
-	style->ScrollbarRounding = 12.0f;
-	style->ScrollbarSize = 13.0f;
-	style->TabBorderSize = 1.0f;
-	style->TabRounding = 0.0f;
-	style->WindowRounding = 4.0f;
 }
 
 /**
@@ -181,4 +106,81 @@ int LSUtilities::OutputLog(std::vector<std::string> logContents) {
 
 		return 1;
 	}
+}
+
+bool LSUtilities::LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height) {
+	int image_width = 0;
+	int image_height = 0;
+	unsigned char* image_data = stbi_load(filename, &image_width, &image_height, NULL, 4);
+	if (image_data == NULL)
+		return false;
+
+	GLuint image_texture;
+	glGenTextures(1, &image_texture);
+	glBindTexture(GL_TEXTURE_2D, image_texture);
+
+	// Setup filtering parameters for display
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Upload pixels into texture
+#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+	stbi_image_free(image_data);
+
+	*out_texture = image_texture;
+	*out_width = image_width;
+	*out_height = image_height;
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return true;
+}
+
+unsigned int LSUtilities::LoadCubemap(std::vector<std::string> faces)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			stbi_image_free(data);
+		}
+		else
+		{
+			std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			stbi_image_free(data);
+		}
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
+}
+
+unsigned char* LSUtilities::LoadTextureThreaded(const char* filename, int* image_width, int* image_height)
+{
+	unsigned char* image_data = stbi_load(filename, image_width, image_height, NULL, 4);
+	return image_data;
+}
+
+std::tuple<float, float, float> LSUtilities::GetGPUMemoryUsage() {
+	GLint nTotalMemoryInKB = 0;
+	glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &nTotalMemoryInKB);
+
+	GLint nCurAvailMemoryInKB = 0;
+	glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX, &nCurAvailMemoryInKB);
+
+	return std::make_tuple((nTotalMemoryInKB - nCurAvailMemoryInKB) / 1000.0f, nTotalMemoryInKB / 1000.0f, nCurAvailMemoryInKB / 1000.0f);
 }

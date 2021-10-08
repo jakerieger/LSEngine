@@ -8,9 +8,13 @@
 #include <fmt/format.h>
 
 #include "stb_image.h"
+#include "json.hpp"
 #include "LSShader.h"
 
 #include <iostream>
+#include <fstream>
+
+using json = nlohmann::json;
 
 struct T_MATERIAL_PROPS {
   glm::vec3 diffuseColor;
@@ -46,13 +50,15 @@ public:
   bool isPBR;
   LS_SHADER_TYPES shaderType;
   glm::vec4 objectColor = glm::vec4(0.3f, 0.3f, 0.3f, 1.0f);
+  const char* Name;
 
 
-  LSMaterial(LS_SHADER_TYPES type, const char* dt, const char* st);
+  LSMaterial(LS_SHADER_TYPES type, const char* dt, const char* st, const char* name);
 
   std::string GetMaterialTypeAsString();
   static LS_SHADER_TYPES GetMaterialTypeAsEnum(const char* type);
-  void Bind(glm::vec3 position, glm::vec3 scale);
+  static void SaveMaterial(LSMaterial* material, const char* filePath);
+  void Bind(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale);
   void Unbind();
 
 private:

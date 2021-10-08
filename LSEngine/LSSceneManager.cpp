@@ -3,6 +3,8 @@
 using json = nlohmann::json;
 
 void LSSceneManager::LoadScene(const char* sceneFilePath) {
+  entities = {}; // init empty entities vector
+
   std::string sceneData = LSUtilities::ReadFileToString(sceneFilePath, "SCENE");
   json sceneJSON = json::parse(sceneData);
 
@@ -16,11 +18,10 @@ void LSSceneManager::LoadScene(const char* sceneFilePath) {
       entity["transform"]["position"]["z"]
     );
 
-    glm::vec4 rot = glm::vec4(
+    glm::vec3 rot = glm::vec3(
       entity["transform"]["rotation"]["x"],
       entity["transform"]["rotation"]["y"],
-      entity["transform"]["rotation"]["z"],
-      entity["transform"]["rotation"]["w"]
+      entity["transform"]["rotation"]["z"]
     );
 
     glm::vec3 scale = glm::vec3(
@@ -30,7 +31,7 @@ void LSSceneManager::LoadScene(const char* sceneFilePath) {
     );
 
     std::string matType = entity["materialType"];
-    LSMaterial* mat = new LSMaterial(LSMaterial::GetMaterialTypeAsEnum(matType.c_str()), nullptr, nullptr);
+    LSMaterial* mat = new LSMaterial(LSMaterial::GetMaterialTypeAsEnum(matType.c_str()), nullptr, nullptr, "mat_name_here");
     mat->objectColor = glm::vec4(
       entity["objectColor"]["R"],
       entity["objectColor"]["G"],
@@ -47,6 +48,8 @@ void LSSceneManager::LoadScene(const char* sceneFilePath) {
 
     std::string entityName = entity["name"];
     LSEntity* entity = new LSEntity(entities.size(), pos, rot, scale, verts, mat, entityName);
+
+    entity->PrepBuffers();
 
     entities.push_back(entity);
   }
@@ -73,7 +76,6 @@ void LSSceneManager::SaveScene(const char* sceneFilePath, std::string sceneName,
     sceneData["entities"][i]["transform"]["rotation"]["x"] = entity->Rotation.x;
     sceneData["entities"][i]["transform"]["rotation"]["y"] = entity->Rotation.y;
     sceneData["entities"][i]["transform"]["rotation"]["z"] = entity->Rotation.z;
-    sceneData["entities"][i]["transform"]["rotation"]["w"] = entity->Rotation.w;
     sceneData["entities"][i]["transform"]["scale"]["x"] = entity->Scale.x;
     sceneData["entities"][i]["transform"]["scale"]["y"] = entity->Scale.y;
     sceneData["entities"][i]["transform"]["scale"]["z"] = entity->Scale.z;
